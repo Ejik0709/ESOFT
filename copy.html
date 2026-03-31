@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8" />
+<title>Глубокое копирование объекта в JS</title>
+</head>
+<body>
+<script>
+  // Глубокое копирование с обработкой циклических ссылок, Map, Set, Date и прототипов
+  function deepClone(obj, map = new WeakMap()) {
+    // Примитивы и функции: возвращаем как есть
+    if (obj === null || typeof obj !== 'object') return obj;
+    
+    // Date
+    if (obj instanceof Date) return new Date(obj.getTime());
+    
+    // Map
+    if (obj instanceof Map) {
+      const cloned = new Map();
+      map.set(obj, cloned);
+      for (const [key, value] of obj.entries()) {
+        cloned.set(deepClone(key, map), deepClone(value, map));
+      }
+      return cloned;
+    }
+    
+    // Set
+    if (obj instanceof Set) {
+      const cloned = new Set();
+      map.set(obj, cloned);
+      for (const value of obj.values()) {
+        cloned.add(deepClone(value, map));
+      }
+      return cloned;
+    }
+
+    // Циклические ссылки
+    if (map.has(obj)) return map.get(obj);
+
+    // Массивы
+    if (Array.isArray(obj)) {
+      const arr = [];
+      map.set(obj, arr);
+      for (const item of obj) {
+        arr.push(deepClone(item, map));
+      }
+      return arr;
+    }
+
+    // Объекты с прототипом
+    const proto = Object.getPrototypeOf(obj);
+    const cloneObj = Object.create(proto);
+    map.set(obj, cloneObj);
+
+    // копирование своих свойств
+    const keys = [
+      ...Object.getOwnPropertyNames(obj),
+      ...Object.getOwnPropertySymbols(obj)
+    ];
+
+    for (const key of keys) {
+      const desc = Object.getOwnPropertyDescriptor(obj, key);
+      if (desc) {
+        if ('value' in desc) {
+          desc.value = deepClone(desc.value, map);
+        }
+        Object.defineProperty(cloneObj, key, desc);
+      }
+    }
+    return cloneObj;
+  }
+
+  // Пример использования:
+  const original = {
+    number: 42,
+    string: "Привет",
+    date: new Date(),
+    array: [1, 2, {a: 1}],
+    nested: {
+      a: { b: { c: 1 } }
+    },
+    symbolProp: Symbol('s'),
+    map: new Map([['key1', 'value1']]),
+    set: new Set([1, 2, 3])
+  };
+
+  // Добавим циклическую ссылку:
+  original.nested.circular = original;
+
+  const clone = deepClone(original);
+
+  console.log("Исходный объект:", original);
+  console.log("Копия объекта:", clone);
+
+  // Проверка, что изменение в копии не влияет на исходник
+  clone.number = 100;
+  clone.array[2].a = 99;
+  clone.nested.a.b.c = 999;
+  clone.symbolProp = Symbol('новый');
+
+  console.log("Изменённая копия:", clone);
+  console.log("Оригинал после изменений в копии:", original);
+
+  // Проверка циклической ссылки:
+  console.log("Циклическая ссылка у копии:", clone.nested.circular === clone); // true
+</script>
+</body>
+</html>
